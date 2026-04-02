@@ -678,9 +678,10 @@ type User = {
 }
 
 type DefinedUser = {
-    [K in keyof User]: Defined<User[K]>
+    [K in keyof User]-?: Defined<User[K]>
 }
-// { id: number; name: string }（可选变必需）
+// { id: number; name: string }
+// 注意：必须使用 -? 显式移除可选修饰符，否则虽然移除了 undefined，但字段依旧是可选的
 ```
 
 ---

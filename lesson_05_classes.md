@@ -641,7 +641,9 @@ class D extends A {
     override value: number = 10
 
     showBase(): void {
-        console.log(super.value)  // 1
+        // 在 TypeScript 和 JavaScript 中，实例属性绑定在 this 上，而不是 prototype 上。
+        // 所以使用 super 来读取父类属性是错误的（将返回 undefined）。只能用 super 调用方法。
+        console.log(this.value)  // 10 （最子类覆盖）
     }
 }
 ```

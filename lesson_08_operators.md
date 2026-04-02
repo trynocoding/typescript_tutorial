@@ -355,7 +355,7 @@ function getUser() {
     return { id: 1, name: "Bob" }
 }
 
-type User = typeof getUser    // { id: number; name: string }
+type UserFunc = typeof getUser    // () => { id: number; name: string }
 type ReturnType = ReturnType<typeof getUser>  // { id: number; name: string }
 
 // 获取对象字面量类型

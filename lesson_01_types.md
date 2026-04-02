@@ -164,11 +164,13 @@ let name: string | null = null  // 正确：可以是字符串或 null
 在 TypeScript 中，`null` 和 `undefined` 是两个不同的概念：
 
 ```typescript
-let a: number = undefined   // 正确！undefined 可以赋值给任何类型（可选）
-let b: null = undefined     // 正确！undefined 可以赋值给 undefined 或 null
+let a: number = undefined   // 错误！严格模式下不能赋值
+let b: null = undefined     // 错误！严格模式下 null 和 undefined 不可互转
 
-// 但严格模式下需要显式声明
-let c: number | null = null  // 明确表示可能是数字或 null
+// 严格模式下（推荐默认开启），必须显式声明联合类型
+let c: number | undefined = undefined  // 明确表示可能是数字或 undefined
+let d: number | null = null            // 明确表示可能是数字或 null
+
 ```
 
 ---

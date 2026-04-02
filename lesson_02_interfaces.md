@@ -773,13 +773,12 @@ interface Base {
     name: string
 }
 
-interface Extended extends Base {
-    name: number  // 覆盖为不同类型
-}
-
-// 这会导致冲突，不能同时满足两个类型
+// 以下两种覆盖都会导致冲突，子类的属性的类型必须能够 assign 给父类的同名属性：
 // interface Extended extends Base {
-//     name: boolean  // 错误！
+//     name: number  // 错误！number 不能赋值给 string
+// }
+// interface Extended extends Base {
+//     name: boolean  // 错误！boolean 不能赋值给 string
 // }
 ```
 
