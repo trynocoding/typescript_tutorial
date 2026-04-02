@@ -46,17 +46,21 @@ interface Person {
     age: number
 }
 
-// 使用接口
+// 方式一：显性类型注解 (Explicit Type Annotation)
+// 明确要求变量必须严格遵循接口结构
 let p: Person = {
     name: "Alice",
     age: 25
 }
 
-// 也可以只声明类型，由 TypeScript 推断
-let p2: Person = {
+// 方式二：隐性类型推导 (Implicit Type Inference)
+// 不写类型注解，由 TypeScript 根据右侧的值自动推断出类型
+let p2 = {
     name: "Bob",
     age: 30
 }
+// p2 此时被自动推断为 { name: string; age: number }，满足 Person 接口结构
+
 ```
 
 ### 基本语法
