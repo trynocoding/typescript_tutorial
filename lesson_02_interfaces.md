@@ -352,7 +352,7 @@ interface Calculator {
     // 方法：每次调用 this 指向实例
     add(a: number, b: number): number
 
-    // 函数属性：也是可调用的，但 this 绑定不同
+    // 函数属性：箭头函数，this 绑定到定义时的外层上下文
     subtract: (a: number, b: number) => number
 }
 
@@ -363,9 +363,59 @@ let calc: Calculator = {
     subtract: (a, b) => a - b
 }
 
-calc.add(5, 3)        // 8
-calc.subtract(5, 3)  // 2
+calc.add(5, 3)        // 8，this === calc
+calc.subtract(5, 3)  // 2，this !== calc（箭头函数 this 词法绑定）
 ```
+
+### this 绑定详解
+
+**方法**调用时，`this` 自动绑定到实例：
+
+```typescript
+const obj = {
+    value: 42,
+    getValue() {
+        return this.value  // this 指向 obj
+    }
+}
+
+obj.getValue()  // 42，this === obj
+```
+
+**箭头函数属性**的 `this` 是词法绑定，指向定义时的外层上下文：
+
+```typescript
+class Counter {
+    count = 0
+
+    // 方法：this 指向实例
+    increment() {
+        this.count++
+    }
+
+    // 箭头函数属性：this 始终指向实例（即使作为回调传递）
+    log = () => {
+        console.log(this.count)  // this 指向 Counter 实例
+    }
+}
+
+const counter = new Counter()
+setTimeout(counter.log, 1000)  // 1 秒后仍能正确访问 this.count
+```
+
+如果用普通函数作为回调，`this` 会丢失：
+
+```typescript
+setTimeout(counter.increment, 1000)  // this === undefined（严格模式）
+```
+
+### 何时选择哪种？
+
+| 场景 | 推荐 |
+|------|------|
+| 需要访问实例属性 | 方法 |
+| 作为回调传递且需要保留 `this` | 箭头函数属性 |
+| 不需要访问 `this` | 两者皆可 |
 
 ---
 
