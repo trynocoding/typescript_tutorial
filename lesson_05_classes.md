@@ -750,6 +750,49 @@ const p: Point = new Point(1, 2)
 let entity: typeof Point = Point
 ```
 
+### Python 对比：类 vs 实例
+
+Python 的类型体系比 TypeScript 更统一——**类本身也是对象**：
+
+```python
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+p = Point(1, 2)      # Point 实例
+entity = Point       # 类本身赋值给变量
+
+type(p)       # <class '__main__.Point'>  → 实例的类型
+type(Point)   # <class 'type'>            → 类的类型是 type
+```
+
+| 写法 | TypeScript 含义 | Python 等价 |
+|------|----------------|-------------|
+| `const p: Point = new Point(1,2)` | `p` 是 `Point` **实例** | `p: Point = Point(1, 2)` |
+| `let entity: typeof Point = Point` | `entity` 是 **类本身** | `entity: type = Point` |
+
+### 实际用途
+
+什么时候需要把类本身赋值给变量？
+
+```python
+# Python：工厂函数，接收类作为参数
+def create_instance(cls: type):
+    return cls()
+
+entity = Point
+result = create_instance(entity)  # 传入 Point 类本身
+```
+
+```typescript
+// TypeScript：typeof Point 用于相同场景
+let entity: typeof Point = Point
+const created = new entity(5, 6)  // 等价于 new Point(5, 6)
+```
+
+**核心理解**：在 Python 和 TypeScript/JavaScript 中，类都是"第一等公民"——可以像普通值一样赋值、传递、作为参数。`typeof Point`（TS）或 `type(Point)`（Python）获取的是"类对象"本身的类型，而不是实例的类型。
+
 ### 类的实例类型
 
 ```typescript
