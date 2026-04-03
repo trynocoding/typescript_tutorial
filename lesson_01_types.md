@@ -155,8 +155,8 @@ let hasPermission: boolean = false
 let empty: null = null               // 明确表示"没有值"
 let notYetDefined: undefined = undefined  // "未定义"
 
-let name: string = null   // 错误！类型不匹配
-let name: string | null = null  // 正确：可以是字符串或 null
+let name: string = null   // 错误！严格模式下（strictNullChecks 开启），null 不能赋值给 string
+let nameOrNull: string | null = null  // 正确：可以用联合类型明确表示可能是字符串或 null
 ```
 
 ### 重要区别：null 和 undefined
@@ -164,10 +164,10 @@ let name: string | null = null  // 正确：可以是字符串或 null
 在 TypeScript 中，`null` 和 `undefined` 是两个不同的概念：
 
 ```typescript
-let a: number = undefined   // 错误！严格模式下不能赋值
+let a: number = undefined   // 错误！严格模式下（strictNullChecks 开启）不能赋值
 let b: null = undefined     // 错误！严格模式下 null 和 undefined 不可互转
 
-// 严格模式下（推荐默认开启），必须显式声明联合类型
+// 💡 提示：在 tsconfig.json 中开启 `strict: true` 会默认开启 `strictNullChecks: true`。这就迫使开发者必须去处理那些本该是空值的边缘情况，从而杜绝绝大多数的 "Cannot read property of undefined" 崩溃风险。这也是 TS 比起 JS 对 Go 开发者最有吸引力的地方。
 let c: number | undefined = undefined  // 明确表示可能是数字或 undefined
 let d: number | null = null            // 明确表示可能是数字或 null
 

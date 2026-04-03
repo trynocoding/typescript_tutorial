@@ -518,7 +518,7 @@ class User implements Serializable {
     }
 }
 
-// 2. 对象可能被扩展（继承）
+// 2. 对象结构会被明确的 `implements` 实现，且更容易通过 `extends` 做多重继承：
 interface Animal {
     name: string
 }
@@ -554,12 +554,20 @@ type Readonly<T> = {
 | 特性 | interface | type |
 |------|-----------|------|
 | 定义对象结构 | ✅ | ✅ |
-| 被 implements | ✅ | ❌ |
-| 扩展（extends）| ✅ | ❌ |
+| 被 implements | ✅ | ✅ (绝大多数情况下兼容) |
+| 扩展属性 | ✅（使用 `extends` 关键字） | ✅（使用交叉类型 `&`） |
 | 联合类型 | ❌ | ✅ |
 | 交叉类型 | ❌ | ✅ |
 | 函数类型 | ❌ | ✅ |
 | 元组 | ❌ | ✅ |
+
+> **提示：Type 实际上是可以被“扩展”的！**
+> 虽然 `type` 不能使用 `extends` 关键字，但是通过交叉类型 `&` 完全可以达到一模一样的继承效果：
+> ```typescript
+> type Animal = { name: string }
+> type Dog = Animal & { breed: string } // 效果完全等同于 interface extends
+> ```
+> 在目前的 TypeScript 开发中，`interface` 倾向于被用来定义开放/规约形式的 API 的契约（别人能去 extends），而 `type` 更多用于业务模型组合（通过 `&` 与 `|` 等聚合出具体的联合/交叉类型）。
 
 ### Claude Code 的风格
 

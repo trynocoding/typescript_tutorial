@@ -40,8 +40,21 @@ if user != nil && user.Profile != nil && user.Profile.Avatar != nil {
 // 基本语法
 const value = obj?.prop?.nested?.value
 
-// 如果链中任何一个是 null/undefined，整个表达式返回 undefined
-const user = {
+// 🚨 在强类型的 TS 中，即使有了 ?.，你也必须首先在接口中声明可能存在的结构，
+// 否则 TS 编译器仍然会报 Property 'phone' does not exist 的深红报错！
+interface UserProfile {
+    profile?: {
+        avatar?: {
+            url: string
+        }
+        phone?: {
+            number: string
+        }
+    }
+}
+
+// 假设从后端拿到了这样一份数据（可能 phone 缺失）
+const user: UserProfile = {
     profile: {
         avatar: {
             url: "https://example.com/avatar.png"
@@ -53,9 +66,9 @@ const user = {
 const url = user?.profile?.avatar?.url
 console.log(url)  // "https://example.com/avatar.png"
 
-// 访问不存在的路径
+// 访问不存在的路径（因为接口里写了 phone?，所以 TS 允许编译，并在运行时返回 undefined）
 const missing = user?.profile?.phone?.number
-console.log(missing)  // undefined（不会报错）
+console.log(missing)  // undefined（不会崩溃）
 ```
 
 ### 调用可选方法

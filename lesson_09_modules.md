@@ -278,11 +278,13 @@ import { queryLoop } from './queryLoop.js'
 // 只导出类型
 export type { User, Config }
 
-// 限制
-export interface Internal {
-    secret: string
+// 导出类/接口的纯类型签名
+export class InternalService {
+    secret: string = "123"
 }
-// export type { Internal }  // 错误！不能导出包含实现细节的类型
+// 完全合法！这相当于只向外暴漏了 InternalService 的结构约束
+// 外部可以定义 `let s: InternalService`，但永远无法执行 `new InternalService()`
+export type { InternalService } 
 ```
 
 ---

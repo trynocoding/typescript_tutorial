@@ -17,60 +17,42 @@
 
 ---
 
-## 1. 异步编程简介
+## 1. 异步编程简介与 Go 深度对比
 
-### Go 对比
+很多 Go 工程师在初入 TypeScript/JavaScript 时，最容易在并发模型上栽跟头。理解两者在本质上的区别，是掌握 TS 异步编程的第一步。
 
-Go 使用 goroutine 和 channel 实现并发：
+### 1. 核心运行机制：并行 (Parallelism) vs 并发 (Concurrency)
 
-```go
-// Go 的并发模式
-ch := make(chan string)
+*   **Go (Goroutine)**：基于 **M:N 调度器**的**并行模型**。`goroutine` 映射到多个操作系统的轻量级线程。当你执行一个阻塞（如 File I/O 或 Sleep）时，Go 调度器会把底层线程分配给其他 goroutine。可以通过设置 `GOMAXPROCS` 实现真正的多核并行计算。
+*   **TypeScript (Event Loop)**：基于 **单线程事件循环**的**并发模型**。你的所有 TS 代码永远只跑在一个主线程（User Thread）上。`await` 绝对不会阻塞底层系统线程，它只是将当前函数的执行上下文挂起（即注册了一个完成时的回调），然后立刻把主线程交还给 Event Loop 去执行其他代码。
 
-go func() {
-    result := doWork()
-    ch <- result  // 发送结果
-}()
+### 2. 多次传值：Channel vs Promise vs AsyncGenerator
 
-result := <-ch  // 接收结果
+*   **Go (Channel)**：Channel 是一条管道，你可以无间断地向其中写入**无数个值**，消费端可以用 `for range` 不断读取，直到 close。
+*   **TypeScript (Promise)**：一个 `Promise` 就像一张彩票，它**一生只能兑现（resolve）一次**。一旦 fulfilled，它的状态和值就永久固化了。这决定了 Promise 绝对无法替代 Channel 来做流式数据传递。
+*   **TypeScript (替代方案)**：如果要在 TS 中实现类似 Channel 的多次发送/接收机制，必须使用 **AsyncGenerator（异步生成器）** 或者外置方案像 `RxJS` / `EventEmitter`。
 
-// 或者用 WaitGroup
-var wg sync.WaitGroup
-wg.Add(1)
-go func() {
-    defer wg.Done()
-    doWork()
-}()
-wg.Wait()
-```
+### 3. 取消控制：Context vs AbortController
 
-### TypeScript 异步模型
+*   **Go**：我们通常通过向下传递 `context.Context`，并在发生超时或取消时捕获 `ctx.Done()` 来级联终止树状的 goroutine。
+*   **TypeScript**：原生的 Promise 一旦启动就**无法从中途被取消**！直到 Web API 引入了 `AbortController` 和 `AbortSignal` 才终于有了官方的取消标准（非常类似 Go 的 Context 取消模式）。
 
-TypeScript/JavaScript 使用 Promise + async/await：
+### 4. WaitGroup 模式
 
-```typescript
-// Promise：表示一个异步操作的最终结果
-const promise = new Promise<string>((resolve, reject) => {
-    setTimeout(() => {
-        resolve("Hello")
-    }, 1000)
-})
+*   **Go**：`sync.WaitGroup` 追踪完成数量。
+*   **TypeScript**：用内置的 `Promise.all()`（等待全部成功或任一失败）或 `Promise.allSettled()`（等待全部都出结果，不管成败）。
 
-// 等待 Promise 完成
-promise.then(result => {
-    console.log(result)  // "Hello"
-})
-```
+---
 
-### JavaScript 事件循环
+### 原生 JavaScript 事件循环的表象
 
-JavaScript 是单线程的，但通过事件循环实现异步：
+尽管是单线程，JS 在遇到异步任务（如网络请求或 Timer）时，会将繁重的工作交给底层的 C++ 线程池执行，完成后再将回调推入事件队列，主线程按序执行。
 
 ```typescript
 console.log("1")
 
 setTimeout(() => {
-    console.log("3")  // 异步，最后执行
+    console.log("3")  // 注册了一个回调，等待计时完成后推入队列
 }, 0)
 
 console.log("2")
@@ -779,7 +761,14 @@ async function fetchWithRetry<T>(
         }
     }
 
-    throw new Error(`All ${maxRetries} attempts failed`)
+    // 🏆 Go 工程师请注意：千万不要在这里 `throw new Error("All attempts failed")`
+    // 这会在 TS 中完全吞没最底层、最真实的 lastError 堆栈，导致生产环境查不出真因！
+    
+    // 标准做法一：原样抛出真实的、最后一次捕获到的异常
+    // throw lastError
+
+    // 标准做法二：抛出新错误，但使用 Error Cause 附加原始报错树（推荐，等同于 Go 的 fmt.Errorf("...: %w", err)）
+    throw new Error(`All ${maxRetries} attempts failed`, { cause: lastError })
 }
 
 // 测试

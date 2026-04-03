@@ -306,16 +306,23 @@ const config = new Config("https://api.example.com", 3)
 // config.apiUrl = "https://new-api.example.com"  // 错误！readonly
 ```
 
-### readonly vs const
+### readonly vs const 与类常量
+
+很多后端开发者初学 TS 时，想在这个类里定义一个全局不变的常量，往往会写错：
 
 ```typescript
-// const 用于变量
-// readonly 用于类的属性
+// const 用于局部变量
+// readonly 用于类的属性（实例级别只读）
+// static readonly 用于类级别的常量（推荐做法！）
 class Example {
-    const CONST_VALUE = 100  // 错误！类属性不能用 const
+    // const CONST_VALUE = 100  // 错误！类的顶级作用域内不能用 const
 
-    readonly READONLY_VALUE = 100  // OK
+    readonly INSTANCE_VALUE = 100  // OK，但这会在每个实例被创建时都分配一份内存
+
+    static readonly CLASS_CONST = 100 // 最佳实践：真正的类级别常量！
 }
+
+console.log(Example.CLASS_CONST) // 100，无需 new 即可访问
 ```
 
 ---
