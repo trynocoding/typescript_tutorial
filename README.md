@@ -65,7 +65,7 @@
 brew install node
 
 # Ubuntu/Debian
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
 # Windows
@@ -74,8 +74,8 @@ sudo apt-get install -y nodejs
 
 验证安装：
 ```bash
-node --version  # 应显示 v18.x 或更高
-npm --version   # 应显示 9.x 或更高
+node --version  # 应显示 v20.x 或更高
+npm --version   # 应显示 10.x 或更高
 ```
 
 ### 2. 安装 TypeScript 编译器
@@ -85,7 +85,7 @@ npm --version   # 应显示 9.x 或更高
 npm install -g typescript
 
 # 验证安装
-tsc --version  # 应显示 5.x
+tsc --version  # 应显示 6.x
 ```
 
 ### 3. 运行示例代码
@@ -144,4 +144,3 @@ npx tsc hello.ts && node hello.js
 ---
 
 *教程基于 Claude Code 源码分析生成*
-# typescript_tutorial
