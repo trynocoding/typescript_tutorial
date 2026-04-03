@@ -168,10 +168,13 @@ add := func(a, b int) int { return a + b }
 ### 箭头函数的各种形式
 
 ```typescript
-// 1. 单参数可省略括号（无类型注解时）
-const double = n => n * 2
-// 有类型注解时括号不能省略
+// 1. 单参数的箭头函数
+// 注意：在严格模式下（推荐开启 noImplicitAny），独立声明时会报错隐式 any，必须加上类型。
+// 加上类型注解后，参数必须加括号：
 const double2 = (n: number): number => n * 2
+
+// 但如果 TypeScript 可以从上下文（如数组 map）中推导 n 的类型，则可以省略括号和类型：
+// const doubled = [1, 2, 3].map(n => n * 2)
 
 // 2. 有函数体必须加括号
 const process = (n: number): number => {
@@ -239,14 +242,13 @@ greet(123)        // 错误！Argument of type 'number' is not assignable to par
 function calculate(
     a: number,
     b: number,
-    operation: string
+    operation: "add" | "sub" | "mul" | "div" // 💡 推荐：使用字面量联合类型，而不是宽泛的 string
 ): number {
     switch (operation) {
         case "add": return a + b
         case "sub": return a - b
         case "mul": return a * b
         case "div": return a / b
-        default: return 0
     }
 }
 
@@ -317,10 +319,7 @@ function parseDate(str: string): Date | null {
 }
 
 // 3. 防止错误
-function getFirstElement(arr: number[]): number {
-    return arr[0]  // 如果数组为空，返回 undefined
-}
-// 应该写成：
+// 在严格模式（开启 noUncheckedIndexedAccess）下，TypeScript 会强制认为数组访问可能越界：
 function getFirstElementSafe(arr: number[]): number | undefined {
     return arr[0]
 }
@@ -584,7 +583,7 @@ Go 本身不支持函数重载，但可以用接口和可变参数模拟。
 // 重载签名
 function parse(input: string): string[]      // 字符串转字符串数组
 function parse(input: number): number[]      // 数字转数字数组
-function parse(input: string | number): (string | number)[] {
+function parse(input: string | number): string[] | number[] {
     // 实现只有一个
     if (typeof input === "string") {
         return input.split("")
@@ -595,7 +594,6 @@ function parse(input: string | number): (string | number)[] {
 console.log(parse("hello"))  // ["h", "e", "l", "l", "o"]
 console.log(parse(123))     // [123]
 
-// 复杂例子：查找第一个匹配元素
 function findOne(
     items: string[],
     query: string
@@ -619,6 +617,9 @@ const ages = [25, 30, 35]
 console.log(findOne(names, "Bob"))    // "Bob"
 console.log(findOne(ages, 30))        // 30
 console.log(findOne(names, "David"))  // undefined
+
+// 💡 提示：在现代 TypeScript 中，这种重载场景通常更推荐使用泛型（下节课介绍）：
+// function findOne<T>(items: T[], query: T): T | undefined
 ```
 
 ### 真实案例：接口方法重载
@@ -658,6 +659,32 @@ Go 没有 `this` 关键字，方法接收者就是第一个参数。
 
 ### TypeScript 中的 this
 
+#### 显式指定 this 参数
+
+TypeScript 允许在函数声明时，将 `this` 作为第一个"伪"参数提供类型。这与 Go 语言的方法接收者（Receiver）非常相似！
+
+```go
+// Go 方法接收者
+func (u *User) Greet() string {
+    return "Hello, " + u.Name
+}
+```
+
+```typescript
+// TypeScript 中显式声明 this 类型（编译后会自动消除）
+function greetUser(this: { name: string }): string {
+    return `Hello, ${this.name}!`
+}
+
+// greetUser() // 错误：必须要提供正确的 this 上下文
+console.log(greetUser.call({ name: "Alice" })) // "Hello, Alice!"
+
+const user = { name: "Bob", greet: greetUser }
+console.log(user.greet()) // "Hello, Bob!"
+```
+
+#### 类中的 this
+
 ```typescript
 // 推荐：使用 class 定义带 this 的函数
 class Person {
@@ -678,17 +705,14 @@ console.log(p.greet())  // "Hello, Alice!"
 // 箭头函数的 this：捕获定义时外层的 this
 const person = {
     name: "Bob",
-    // 箭头函数没有自己的 this，它继承定义时的外层 this
-    // 在全局作用域定义时，this 为 undefined（严格模式）
-    // 注意：箭头函数内使用 this，需要先检查是否为 undefined
+    // ⚠️ 错误示范：箭头函数没有自己的 this，它会继承外层作用域（通常是 window 或 undefined）
     greet: () => {
-        const name = this && typeof this === "object" && "name" in this
-            ? (this as { name?: string }).name
-            : undefined
-        return `Hello, ${name ?? "unknown"}!`
+        // 这里的 this 不是 person 对象！
+        // return `Hello, ${this.name}!` // TypeScript 也会报错或提示
+        return `Hello, unknown!`
     }
 }
-console.log(person.greet())  // "Hello, unknown!"（this 是 undefined）
+console.log(person.greet())  // "Hello, unknown!"
 
 // 正确做法：用普通方法而非箭头函数
 const person2 = {
