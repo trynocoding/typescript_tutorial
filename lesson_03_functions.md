@@ -99,6 +99,8 @@ result := transform(5, double)  // 10
 // 语法：type 函数类型 = (参数类型) => 返回类型
 type Transform = (n: number) => number
 type BinaryOp = (a: number, b: number) => number
+// 可选参数 result?: string 表示参数可以省略；
+// result: string | undefined 表示必须传 undefined 值（两者不同）
 type Callback = (err: Error | null, result?: string) => void
 
 // 使用函数类型
@@ -166,8 +168,10 @@ add := func(a, b int) int { return a + b }
 ### 箭头函数的各种形式
 
 ```typescript
-// 1. 省略括号（单参数）
-const double = (n: number): number => n * 2
+// 1. 单参数可省略括号（无类型注解时）
+const double = n => n * 2
+// 有类型注解时括号不能省略
+const double2 = (n: number): number => n * 2
 
 // 2. 有函数体必须加括号
 const process = (n: number): number => {
@@ -361,6 +365,16 @@ console.log(greet("Alice"))                  // "Hello, Alice!"
 console.log(greet("Bob", "Hi"))               // "Hi, Bob!"
 
 // 可选参数类型是 T | undefined
+// 模拟用户数据
+const users = [
+    { id: 1, name: "Alice", deleted: false },
+    { id: 2, name: "Bob", deleted: true }
+]
+
+function getUser(id: number) {
+    return users.find(u => u.id === id)
+}
+
 function findUser(id: number, includeDeleted?: boolean): string | undefined {
     const user = getUser(id)
     if (!user) return undefined
@@ -369,7 +383,8 @@ function findUser(id: number, includeDeleted?: boolean): string | undefined {
 }
 
 const name1 = findUser(1)              // string | undefined
-const name2 = findUser(1, true)        // string | undefined
+const name2 = findUser(2)              // undefined（已删除）
+const name3 = findUser(2, true)        // string | undefined（包含已删除用户）
 ```
 
 ### 实际应用
@@ -524,9 +539,10 @@ collectArgs(1, "a", "b", "c")
 
 ```typescript
 // 格式化字符串
-function format(template: string, ...values: any[]): string {
+function format(template: string, ...values: unknown[]): string {
     return template.replace(/\{(\d+)\}/g, (_, index) => {
-        return values[parseInt(index)]?.toString() ?? ""
+        const value = values[parseInt(index)]
+        return value != null ? String(value) : ""
     })
 }
 
@@ -579,18 +595,18 @@ function parse(input: string | number): (string | number)[] {
 console.log(parse("hello"))  // ["h", "e", "l", "l", "o"]
 console.log(parse(123))     // [123]
 
-// 复杂例子：查找元素
-function find(
+// 复杂例子：查找第一个匹配元素
+function findOne(
     items: string[],
     query: string
 ): string | undefined
 
-function find(
+function findOne(
     items: number[],
     query: number
 ): number | undefined
 
-function find(
+function findOne(
     items: (string | number)[],
     query: string | number
 ): string | number | undefined {
@@ -600,21 +616,24 @@ function find(
 const names = ["Alice", "Bob", "Charlie"]
 const ages = [25, 30, 35]
 
-console.log(find(names, "Bob"))    // "Bob"
-console.log(find(ages, 30))        // 30
-console.log(find(names, "David"))  // undefined
+console.log(findOne(names, "Bob"))    // "Bob"
+console.log(findOne(ages, 30))        // 30
+console.log(findOne(names, "David"))  // undefined
 ```
 
-### 真实案例
+### 真实案例：接口方法重载
 
 **文件：`src/Tool.ts`**
+
+上面是**函数重载**（一个函数多个签名），下面是**可选方法**（接口中用 `?` 标记的可选成员）：
+
 ```typescript
-// 工具调用有多个重载签名
+// 工具接口有两种调用方式
 interface Tool {
     // 调用工具，参数根据工具定义
     call(args: unknown): Promise<ToolResult>
 
-    // 或同步调用（某些工具）
+    // callSync 是可选的同步调用方法（用 ? 标记，非方法重载）
     callSync?(args: unknown): ToolResult
 }
 
@@ -640,33 +659,45 @@ Go 没有 `this` 关键字，方法接收者就是第一个参数。
 ### TypeScript 中的 this
 
 ```typescript
-// 普通函数中的 this
-function Person(this: any, name: string) {
-    this.name = name
-    this.greet = function() {
+// 推荐：使用 class 定义带 this 的函数
+class Person {
+    name: string
+
+    constructor(name: string) {
+        this.name = name
+    }
+
+    greet() {
         return `Hello, ${this.name}!`
     }
 }
 
-const p = new (Person as any)("Alice")
+const p = new Person("Alice")
 console.log(p.greet())  // "Hello, Alice!"
 
-// 箭头函数的 this
+// 箭头函数的 this：捕获定义时外层的 this
 const person = {
     name: "Bob",
-    // 箭头函数保持外层的 this
+    // 箭头函数没有自己的 this，它继承定义时的外层 this
+    // 在全局作用域定义时，this 为 undefined（严格模式）
+    // 注意：箭头函数内使用 this，需要先检查是否为 undefined
     greet: () => {
-        return `Hello, ${this.name}!`  // this 不是 person！
+        const name = this && typeof this === "object" && "name" in this
+            ? (this as { name?: string }).name
+            : undefined
+        return `Hello, ${name ?? "unknown"}!`
     }
 }
+console.log(person.greet())  // "Hello, unknown!"（this 是 undefined）
 
-// 正确做法
+// 正确做法：用普通方法而非箭头函数
 const person2 = {
     name: "Bob",
     greet() {
         return `Hello, ${this.name}!`
     }
 }
+console.log(person2.greet())  // "Hello, Bob!"
 ```
 
 ### 类中的 this
@@ -783,6 +814,7 @@ console.log(createUser("Bob", "bob@example.com"))
 
 function sumAll(...arrays: number[][]): number {
     return arrays.flat().reduce((acc, n) => acc + n, 0)
+    // TypeScript 从初始值 0 推断 acc 和 n 为 number，无需显式注解
 }
 
 console.log(sumAll([1, 2], [3, 4], [5]))  // 15
@@ -806,6 +838,7 @@ console.log(sumAll())                      // 0
 | 默认参数 | `fn(a: T = default)` | 有默认值 |
 | 剩余参数 | `fn(...args: T[])` | 可变参数 |
 | 函数重载 | `fn(): A; fn(): B` | 多签名 |
+| 返回 never | `fn(): never` | 永不返回 |
 
 ### 对比 Go
 
