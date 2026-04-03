@@ -78,7 +78,12 @@ console.log(missing)  // undefined（不会崩溃）
 obj?.method?.()
 
 // 实际例子
-const callback?: () => void
+// ⚠️ 错误：`?` 不能用于 let/const/var 变量声明
+// const callback?: () => void  // 这是语法错误！
+
+// 正确写法：
+// 可选属性（`?`）只能用于对象属性或函数参数
+let callback: (() => void) | undefined
 callback?.()  // 安全调用，如果 callback 是 undefined，什么都不做
 ```
 
@@ -106,17 +111,32 @@ const url1 = user && user.profile && user.profile.avatar && user.profile.avatar.
 // ?. 方式（更简洁）
 const url2 = user?.profile?.avatar?.url
 
-// 两者区别：
-// && 会检查 falsy 值（0, "", false）也会短路
-// ?. 只检查 null/undefined
+// 两者关键区别：
+// && 会对所有 falsy 值（0, "", false, null, undefined）短路
+// ?. 只对 null/undefined 短路
 
-const value = 0
-value && value.something  // 0（不会访问 something）
-value?.something          // 0（也不会访问 something）—— 行为相同
+// 示例：使用可能为 null/undefined 的对象属性
+interface Profile { avatar?: { url: string } }
+interface UserProfile { profile?: Profile }
 
-const empty = ""
-empty && empty.something  // ""（不会访问）
-empty?.something          // undefined（?. 返回 undefined）—— 行为不同！
+const loggedInUser: UserProfile | null = null
+const guestUser: UserProfile = { profile: {} }  // 无头像
+
+// && 方式：遇到 null 就短路
+const avatarUrl1 = loggedInUser && loggedInUser.profile && loggedInUser.profile.avatar?.url
+// ?. 方式：等价但更简洁
+const avatarUrl2 = loggedInUser?.profile?.avatar?.url
+// 两者结果相同： undefined
+
+// 是否会短路的差异：
+const score = 0
+// && 方式：0 是 falsy，会短路，返回 0 而不是访问后面
+const v1 = score && String(score)  // 0（数字）
+// ?. 方式：0 不是 null/undefined，不短路，会继续访问属性
+// （number 没有 foo 属性，下例仅为说明流程）
+const arr = [1, 2, 3]
+const v2 = score || arr  // arr（|| 对 falsy 短路）
+const v3 = score ?? arr  // 0（?? 只对 null/undefined 短路，0 不短路）
 ```
 
 ---
@@ -264,7 +284,9 @@ function process(value: string | null): number {
 ```typescript
 // ! 是危险的，可能导致运行时错误
 let value: string | null = null
-console.log(value!.length)  // 编译通过，运行时报错：Cannot read property 'length' of null
+// ⚠️ 下行编译通过，但运行时抛出：
+// TypeError: Cannot read properties of null (reading 'length')
+console.log(value!.length)
 
 // 优先使用安全的方式
 if (value !== null && value !== undefined) {
@@ -350,13 +372,31 @@ console.log(str.toUpperCase())  // 如果 value 不是 string，运行时出错
 
 ### 概念解释
 
-typeof 可以在运行时获取值的类型。
+TypeScript/JavaScript 中的 `typeof` 有**两种完全不同的用途**，必须加以区分：
+
+- **JavaScript `typeof` 运算符**：在**运行时**执行，返回值类型的字符串（如 `"string"`、`"number"`、`"object"`），用于类型守卫。
+- **TypeScript `typeof` 类型查询**：在**编译时**执行，用于获取变量的 TypeScript 类型，只能在类型位置使用。
 
 ### Go 对比
 
-Go 没有运行时类型反射的等价语法。
+Go 有 `reflect.TypeOf()`，属于运行时反射，更接近 JS 的 `typeof`。TypeScript 的类型层 `typeof` 是纯编译期概念，Go 没有等价物。
 
-### TypeScript typeof
+### JavaScript typeof（运行时，类型守卫）
+
+```typescript
+// 运行时 typeof：返回字符串，用于分支判断
+function printValue(value: string | number | boolean) {
+    if (typeof value === "string") {
+        console.log(value.toUpperCase())  // TypeScript 知道这里是 string
+    } else if (typeof value === "number") {
+        console.log(value.toFixed(2))     // TypeScript 知道这里是 number
+    } else {
+        console.log(value)                // boolean
+    }
+}
+```
+
+### TypeScript typeof（编译时，类型查询）
 
 ```typescript
 // 获取变量类型

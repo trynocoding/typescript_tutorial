@@ -486,7 +486,13 @@ async function main() {
         const data = await fetchData()
         console.log(data)
     } catch (error) {
-        console.error("Error:", error.message)
+        // ⚠️ TypeScript 4.0+ strict 模式下，catch 的 error 类型是 unknown
+        // 不能直接访问 error.message，必须先检查类型
+        if (error instanceof Error) {
+            console.error("Error:", error.message)
+        } else {
+            console.error("Unknown error:", String(error))
+        }
     } finally {
         console.log("Cleanup")  // 总是执行
     }
@@ -585,11 +591,20 @@ const result = await Promise.race([
 返回第一个成功的结果：
 
 ```typescript
-const result = await Promise.any([
-    fetch("/api/1").then(r => r.json()),
-    fetch("/api/2").then(r => r.json()),
-    fetch("/api/3").then(r => r.json())
-])
+try {
+    const result = await Promise.any([
+        fetch("/api/1").then(r => r.json()),
+        fetch("/api/2").then(r => r.json()),
+        fetch("/api/3").then(r => r.json())
+    ])
+    console.log(result)
+} catch (e) {
+    // ⚠️ 如果所有 Promise 都 reject，就抛出 AggregateError
+    // AggregateError 将所有 reject 的原因打包在 .errors 数组中
+    if (e instanceof AggregateError) {
+        console.error("所有请求均失败:", e.errors)
+    }
+}
 ```
 
 ---
@@ -630,15 +645,21 @@ class McpSession {
 ### 案例：流式处理
 
 ```typescript
+// ⚠️ Channel vs AsyncGenerator 模型差异：
+// Go Channel 是「推模型」：Producer 主动发送数据，Consumer 被动接收
+// AsyncGenerator 是「拉模型」：消费者用 for-await 查询，生产者才执行 yield
+// 这意味着：消费者不登录，生产者不会自动推送
+
 // 模拟流式 API 响应
 async function* streamResponses(
     messages: string[]
 ): AsyncGenerator<string> {
     for (const msg of messages) {
         await new Promise(resolve => setTimeout(resolve, 500))
-        yield msg.toUpperCase()
+        yield msg.toUpperCase()  // 每次 for-await 迭代才执行
     }
 }
+```
 
 async function processStream() {
     console.log("Starting...")
@@ -747,13 +768,16 @@ async function fetchWithRetry<T>(
     fn: () => Promise<T>,
     maxRetries: number = 3
 ): Promise<T> {
-    let lastError: Error
+    // ⚠️ 必须提供初始值或使用非空断言（!）
+    // 因为如果 maxRetries <= 0，循环不会执行，lastError 将未赋值
+    let lastError: Error = new Error("No attempts made")
 
     for (let i = 0; i < maxRetries; i++) {
         try {
             return await fn()
         } catch (error) {
-            lastError = error as Error
+            // ⚠️ catch 中 error 类型是 unknown，需要转换
+            lastError = error instanceof Error ? error : new Error(String(error))
             console.log(`Attempt ${i + 1} failed: ${lastError.message}`)
             if (i < maxRetries - 1) {
                 await delay(1000 * (i + 1))  // 指数退避
@@ -763,11 +787,9 @@ async function fetchWithRetry<T>(
 
     // 🏆 Go 工程师请注意：千万不要在这里 `throw new Error("All attempts failed")`
     // 这会在 TS 中完全吞没最底层、最真实的 lastError 堆栈，导致生产环境查不出真因！
-    
-    // 标准做法一：原样抛出真实的、最后一次捕获到的异常
-    // throw lastError
 
-    // 标准做法二：抛出新错误，但使用 Error Cause 附加原始报错树（推荐，等同于 Go 的 fmt.Errorf("...: %w", err)）
+    // 标准做法：抛出新错误，但使用 Error Cause 附加原始报错树
+    // 等同于 Go 的 fmt.Errorf("...: %w", err)
     throw new Error(`All ${maxRetries} attempts failed`, { cause: lastError })
 }
 

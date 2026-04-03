@@ -48,11 +48,9 @@ func Min[T any](a T, b T) T {
 
 ```typescript
 // TypeScript 泛型
-function min<T>(a: T, b: T): T {
-    if (a < b) {
-        return a
-    }
-    return b
+// ⚠️ 注意：无约束的泛型参数不支持 < 操作符，必须添加约束才能编译
+function min<T extends number | string | bigint>(a: T, b: T): T {
+    return a < b ? a : b
 }
 
 console.log(min(1, 2))           // 1
@@ -172,8 +170,12 @@ console.log(numContainer.getValue())  // 100
 ### 多类型参数
 
 ```typescript
-interface Dictionary<K extends string | number, V> {
-    [key: K]: V
+// ⚠️ TypeScript 索引签名的键类型只支持 string、number、symbol 或模板字面量，
+// 不支持泛型参数。所以无法用 interface Dictionary<K, V> { [key: K]: V }。
+// 正确做法是用映射类型（Mapped Type）
+
+type Dictionary<K extends string | number, V> = {
+    [P in K]: V
 }
 
 const dict: Dictionary<string, number> = {
@@ -321,7 +323,9 @@ class DataStore<T> {
     }
 }
 
-// 接口可以继承泛型类，但类不能继承接口
+// 注：泛型接口和泛型类都可以通过 implements 实现接口
+// 类可以实现接口：class Foo implements InterfaceA, InterfaceB {}
+// 接口可以继承类的结构：interface IFoo extends SomeClass {}
 ```
 
 ---
@@ -527,9 +531,8 @@ type PartialUser = {
 }
 
 // 使用场景：更新用户时不需要全部字段
-function updateUser(id: number, updates: Partial<User>): User {
-    // 合并更新
-    const existing = getUser(id)
+function updateUser(existing: User, updates: Partial<User>): User {
+    // 合并更新（spread 属性，后面的覆盖前面的）
     return { ...existing, ...updates }
 }
 ```

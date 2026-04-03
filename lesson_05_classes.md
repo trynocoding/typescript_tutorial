@@ -492,8 +492,8 @@ dog.move()                // "Buddy is moving"
 
 | 特性 | 抽象类 | 接口 |
 |------|--------|------|
-| 实现方法 | ✅ 可以 | ❌ 不能 |
-| 属性 | ✅ 可以 | ❌ 只能声明 |
+| 实现方法 | ✅ 可以 | ❌ 不能（只有签名）|
+| 属性初始化 | ✅ 可以有初始值 | ❌ 只能声明结构，不能赋初始值 |
 | 多继承 | ❌ 不能 | ✅ 可以实现多个 |
 | 实例化 | ❌ 不能 | ❌ 不能 |
 
@@ -710,8 +710,8 @@ console.log(Counter.getTotal())  // 2
 
 ```typescript
 class MathUtils {
-    // 静态常量大写
-    static readonly PI = 3.14159
+    // 静态常量 - 推荐直接引用 Math.PI，无需自定义
+    static readonly PI = Math.PI  // 3.141592653589793
 
     // 静态方法
     static add(a: number, b: number): number {
@@ -723,7 +723,7 @@ class MathUtils {
     }
 }
 
-console.log(MathUtils.PI)        // 3.14159
+console.log(MathUtils.PI)        // 3.141592653589793
 console.log(MathUtils.add(1, 2)) // 3
 console.log(MathUtils.average([1, 2, 3])) // 2
 ```
@@ -753,17 +753,36 @@ let entity: typeof Point = Point
 ### 类的实例类型
 
 ```typescript
+// ⚠️ 在 strict: true（启用 strictPropertyInitialization）下，
+// 属性必须在声明时初始化或在 constructor 中赋値。
+// 下面的写法在 strict 模式下会编译报错：
+// class User {
+//     name: string  // 错误！Property 'name' has no initializer...
+//     age: number
+// }
+
+// 正确写法 1：constructor 中初始化
 class User {
     name: string
     age: number
+
+    constructor(name: string, age: number) {
+        this.name = name
+        this.age = age
+    }
+}
+
+// 正确写法 2：参数属性简写
+class UserShort {
+    constructor(public name: string, public age: number) {}
 }
 
 // 实例的类型是 User
-const user: User = new User()
+const user: User = new User("Alice", 25)
 
 // 函数参数使用类类型
-function createUser(factory: new () => User): User {
-    return new factory()
+function createUser(factory: new (name: string, age: number) => User): User {
+    return new factory("Bob", 30)
 }
 ```
 

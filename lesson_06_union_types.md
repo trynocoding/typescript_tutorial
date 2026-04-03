@@ -24,21 +24,31 @@
 
 ### Go 对比
 
-Go 没有直接的联合类型，但可以用以下方式模拟：
+Go 没有直接的联合类型，常用以下方式模拟：
 
 ```go
-// 方式一：使用结构体 + 布尔标志
+// 方式一：使用空接口 any（Go 1.18+）
+var value any      // 可以是任意类型
+value = "hello"    // 字符串
+value = 123        // 数字
+
+// 用类型 switch 分发
+switch v := value.(type) {
+case string:
+    fmt.Println("string:", v)
+case int:
+    fmt.Println("int:", v)
+}
+
+// 方式二：使用结构体 + 标志字段
 type Result struct {
-    Value  any
+    Value   any
     IsError bool
     Error   error
 }
-
-// 方式二：使用接口
-type Any interface {
-    isAny()
-}
 ```
+
+> 注：Go 的空接口 `any` 是运行时多态，而 TypeScript 联合类型是编译期的静态类型约束——两者安全性和表达能力完全不同。
 
 ### TypeScript 联合类型
 
@@ -182,25 +192,26 @@ function move(animal: Fish | Bird): void {
 
 ```typescript
 // 用一个公共的 "type" 字段区分
+// ⚠️ 注意：不要将自定义接口命名为 Error，会遮蔽 JavaScript 全局 Error 类
 interface Success {
     type: "success"  // 鉴别属性
     value: number
 }
 
-interface Error {
+interface Failure {
     type: "error"    // 鉴别属性
     message: string
 }
 
-type Result = Success | Error
+type Result = Success | Failure
 
 function handle(result: Result): void {
     switch (result.type) {
         case "success":
-            console.log(result.value)  // result 是 Success
+            console.log(result.value)    // result 是 Success
             break
         case "error":
-            console.error(result.message)  // result 是 Error
+            console.error(result.message)  // result 是 Failure
             break
     }
 }
@@ -245,7 +256,6 @@ type Result =
     | { type: "loading" }
     | { type: "idle" }
 
-// 穷尽检查：TypeScript 会确保处理所有情况
 function handleResult(result: Result): string {
     switch (result.type) {
         case "success":
@@ -256,8 +266,12 @@ function handleResult(result: Result): string {
             return "Loading..."
         case "idle":
             return "Idle"
+        default:
+            // 穷尽性检查（Exhaustive Check）——配合 never 类型实现编译层强制
+            // 如果 Result 日后新增了 { type: "retrying" } 但忘记处理，这里编译必报错
+            const _exhaustive: never = result
+            throw new Error(`Unhandled result type: ${(_exhaustive as Result).type}`)
     }
-    // 如果忘记处理某个 case，编译器会报错
 }
 ```
 

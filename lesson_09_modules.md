@@ -58,6 +58,10 @@ export const PI = 3.14159
 
 ```typescript
 // main.ts - 使用模块
+// ⚠️ 若使用原生 ES 模块导入（moduleResolution: "NodeNext" 或 bundler 模式），
+// 需要写 .js 后缀而不是 .ts！
+// 原因：TypeScript 编译后输出 .js 文件而不更改导入路径。
+// 所以 import 就当写不改变的最终目标文件名〔即 .js〕。
 import { add, PI } from "./math.js"
 
 console.log(add(1, 2))  // 3
@@ -107,11 +111,13 @@ export { VERSION, Config }
 ### as 重命名导出
 
 ```typescript
-// 导出时重命名
-export { User as UserClass }
+// ① 导出时重命名：对外用不同的名字
+export class User { /* ... */ }
+export { User as UserModel }   // 导出为 UserModel
 
-// 导入时重命名
-export { UserClass as User }
+// ② 导入时重命名：解决命名冲突
+import { User as UserModel } from "./user.js"
+import { User as AuthUser } from "./auth.js"
 ```
 
 ---
@@ -275,16 +281,30 @@ import { queryLoop } from './queryLoop.js'
 ### export type
 
 ```typescript
-// 只导出类型
+// 只导出类型（接口、type 别名）
 export type { User, Config }
 
-// 导出类/接口的纯类型签名
+// ⚠️ 重要：export type 不会阻止外部实例化类！
+// export type { InternalService } 只是一个语义标记，告诉构建工具（如 esbuild、babel）
+// 此导出仅用于类型检查，编译后会被擦除（不生成运行时代码）。
+// 但导入方如果用 `import { InternalService } from '...'`（普通 import），
+// 仍然可以 new InternalService()。
+
+// 示例：
 export class InternalService {
     secret: string = "123"
 }
-// 完全合法！这相当于只向外暴漏了 InternalService 的结构约束
-// 外部可以定义 `let s: InternalService`，但永远无法执行 `new InternalService()`
-export type { InternalService } 
+// 下面这行只是"类型专用导出"标记，不影响运行时可用性
+export type { InternalService }
+
+// 真正防止外部实例化的做法：使用 private constructor
+export class SingletonService {
+    private constructor() {}  // 外部无法 new SingletonService()
+
+    static create(): SingletonService {
+        return new SingletonService()
+    }
+}
 ```
 
 ---
@@ -360,10 +380,14 @@ const isValid = Validation.validate("hello", rules)
 
 | 特性 | namespace | module |
 |------|-----------|--------|
-| 语法 | `namespace Name {}` | `export/` |
+| 语法 | `namespace Name {}` | `export/import` |
 | 编译目标 | 全局/模块 | ES 模块 |
 | 推荐度 | 旧（TS 1.5+）| 现代 |
-| 使用场景 | 全局类型声明 | 代码模块化 |
+| 合法使用场景 | `.d.ts` 声明文件 | 业务代码模块化 |
+
+> ⚠️ **实际开发中应避免在 `.ts` 业务文件中使用 namespace。**
+> namespace 现在主要应用在 **`.d.ts` 类型声明文件**中（如 `@types/*` 包据），
+> 用于封装全局库的命名空间。如果你写的是应用程序或库代码，请一律使用 ES 模块。
 
 ---
 

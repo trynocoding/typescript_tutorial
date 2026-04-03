@@ -60,6 +60,11 @@ let p2 = {
     age: 30
 }
 // p2 此时被自动推断为 { name: string; age: number }，满足 Person 接口结构
+// ⚠️ 注意：这是「结构兼容」，而不是「类型相同」。
+// TypeScript 使用结构类型系统：只要属性匹配就兼容。
+// 但有一个例外：对象字面量直接赋给接口变量时，会触发“多余属性检查”：
+// let p3: Person = { name: "Carol", age: 20, extra: true }  // 错误！多余属性
+// 但如果先赋给变量再传递，则不触发这个检查（因为结构兼容已满足）。
 
 ```
 
@@ -558,8 +563,28 @@ type Readonly<T> = {
 | 扩展属性 | ✅（使用 `extends` 关键字） | ✅（使用交叉类型 `&`） |
 | 联合类型 | ❌ | ✅ |
 | 交叉类型 | ❌ | ✅ |
-| 函数类型 | ❌ | ✅ |
+| 函数签名（call signature）| ✅ | ✅（`=>` 语法更简洁）|
 | 元组 | ❌ | ✅ |
+| 声明合并（重复声明自动合并）| ✅ | ❌ |
+
+> **关于函数类型**：`interface` 可以用 call signature 语法定义函数类型：
+> ```typescript
+> interface Formatter {
+>     (value: string): string  // call signature
+> }
+> // 等价于：type Formatter = (value: string) => string
+> ```
+> 两者均可，但 `type` 的箭头语法更简洁，更常见。
+
+> **关于声明合并**：这是 `interface` 独有的能力，`type` 不能重复声明：
+> ```typescript
+> interface Animal { name: string }
+> interface Animal { age: number }  // 自动合并为 { name: string; age: number }
+>
+> type A = { x: number }
+> type A = { y: number }  // 错误！type 不能重复声明
+> ```
+> 这也是第三方库的 `.d.ts` 声明文件大量使用 `interface` 的核心原因。
 
 > **提示：Type 实际上是可以被“扩展”的！**
 > 虽然 `type` 不能使用 `extends` 关键字，但是通过交叉类型 `&` 完全可以达到一模一样的继承效果：
@@ -708,9 +733,18 @@ console.log(arr[1])   // "b"
 ```typescript
 // 同时支持字符串和数字键
 interface Mixed {
-    [key: string]: any
-    length: number
-    name: string
+    [key: string]: any  // 所有具体属性必须兼容索引签名的值类型
+    length: number      // OK：number 属于 any
+    name: string        // OK：string 属于 any
+}
+
+// ⚠️ 重要约束：当接口有字符串索引签名时，
+// 所有具体属性的类型必须兼容索引签名的值类型。
+// 例如索引签名是 [key: string]: number，则具体属性不能是 string：
+interface Invalid {
+    [key: string]: number
+    // name: string     // 错误！string 不属于索引签名的值类型 number
+    count: number       // OK
 }
 
 let m: Mixed = {

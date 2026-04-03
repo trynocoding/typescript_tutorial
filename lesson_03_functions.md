@@ -168,27 +168,34 @@ add := func(a, b int) int { return a + b }
 ### 箭头函数的各种形式
 
 ```typescript
-// 1. 单参数的箭头函数
-// 注意：在严格模式下（推荐开启 noImplicitAny），独立声明时会报错隐式 any，必须加上类型。
-// 加上类型注解后，参数必须加括号：
+// 管理简单：简单记录一下箭头函数的括号规则：
+// - 单参数 + 无类型注解：可以省略括号  n => n * 2
+// - 单参数 + 有类型注解：括号必须加  (n: number) => n * 2
+// - 无参数：必须加  () => ...
+// - 多参数：必须加  (a, b) => ...
+
+// 1. 单参数，有类型注解（必须加括号）
 const double2 = (n: number): number => n * 2
 
-// 但如果 TypeScript 可以从上下文（如数组 map）中推导 n 的类型，则可以省略括号和类型：
-// const doubled = [1, 2, 3].map(n => n * 2)
+// 2. 单参数，无类型注解（可以省略括号，不推荐）
+// const double3 = n => n * 2  // 开启 noImplicitAny 时报错
 
-// 2. 有函数体必须加括号
+// 3. 上下文可以推导时，自然地省略括号和类型
+const doubled = [1, 2, 3].map(n => n * 2)
+
+// 4. 有函数体必须加括号
 const process = (n: number): number => {
     const doubled = n * 2
     return doubled + 1
 }
 
-// 3. 无参数
+// 5. 无参数
 const getRandom = (): number => Math.random()
 
-// 4. 多参数
+// 6. 多参数
 const add = (a: number, b: number): number => a + b
 
-// 5. 多行箭头函数
+// 7. 多行箭头函数
 const greet = (name: string): void => {
     const message = `Hello, ${name}!`
     console.log(message)
@@ -249,6 +256,10 @@ function calculate(
         case "sub": return a - b
         case "mul": return a * b
         case "div": return a / b
+        default:
+            // 穷尽性检查：如果日后新增操作类型却忘记处理，这里编译报错
+            const _exhaustive: never = operation
+            throw new Error(`Unknown operation: ${_exhaustive}`)
     }
 }
 
@@ -463,11 +474,15 @@ console.log(createUser("Bob", 30))
 ### 默认参数与可选参数的区别
 
 | 特性 | 默认参数 | 可选参数 |
-|------|----------|----------|
+|------|----------|-----------|
 | 语法 | `param: type = value` | `param?: type` |
 | 隐式值 | `undefined` | `undefined` |
-| 位置限制 | 可以在必需前 | 必须在必需后 |
+| 位置限制 | 建议在必需参数**后** | 必须在必需参数后 |
 | 传 `undefined` | 使用默认值 | 跳过 |
+
+> ⚠️ **反模式警告**：虽然 TypeScript 允许默认参数放在必需参数之前，
+> 例如 `function f(a: number = 0, b: number)`，但当想要触发默认值时必须显式传 `undefined`：`f(undefined, 5)`。
+> 这是非常反直觉的设计，应视为**反模式**。实际开发中应始终将默认参数放在必需参数之后。
 
 ```typescript
 // 默认参数可以在任意位置
@@ -571,7 +586,9 @@ console.log(user2)  // { name: "Bob", age: 30, email: "" }
 
 ### 概念解释
 
-函数重载允许一个函数有多个签名，类似于 Go 的多返回值但更强大。
+函数重载（Function Overload）允许一个函数对**不同的参数类型组合**提供不同的类型签名，让调用方获得精确的类型推断。
+
+> **与 Go 的区别**：Go 本身不支持函数重载，且 Go 的"多返回值"（`return value, err`）是完全不同的概念——多返回值是让一个函数返回多个值；而函数重载是让同一个函数对不同的*输入类型*有不同的*返回类型*。两者解决的问题不同，不要混淆。
 
 ### Go 对比
 
