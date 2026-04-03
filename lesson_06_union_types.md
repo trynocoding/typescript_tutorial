@@ -270,7 +270,7 @@ function handleResult(result: Result): string {
             // 穷尽性检查（Exhaustive Check）——配合 never 类型实现编译层强制
             // 如果 Result 日后新增了 { type: "retrying" } 但忘记处理，这里编译必报错
             const _exhaustive: never = result
-            throw new Error(`Unhandled result type: ${(_exhaustive as Result).type}`)
+            throw new Error(`Unhandled result type: ${_exhaustive}`)
     }
 }
 ```
@@ -691,6 +691,10 @@ function handleEvent(event: Event): string {
             return `Pressed: ${event.key}`
         case "scroll":
             return `Scrolled ${event.deltaY > 0 ? "down" : "up"}`
+        default:
+            // 穷尽性检查：如果 Event 新增成员但忘记处理，编译时会报错
+            const _exhaustive: never = event
+            throw new Error(`Unhandled event type: ${_exhaustive}`)
     }
 }
 

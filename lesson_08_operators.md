@@ -128,15 +128,21 @@ const avatarUrl1 = loggedInUser && loggedInUser.profile && loggedInUser.profile.
 const avatarUrl2 = loggedInUser?.profile?.avatar?.url
 // 两者结果相同： undefined
 
-// 是否会短路的差异：
-const score = 0
-// && 方式：0 是 falsy，会短路，返回 0 而不是访问后面
-const v1 = score && String(score)  // 0（数字）
-// ?. 方式：0 不是 null/undefined，不短路，会继续访问属性
-// （number 没有 foo 属性，下例仅为说明流程）
-const arr = [1, 2, 3]
-const v2 = score || arr  // arr（|| 对 falsy 短路）
-const v3 = score ?? arr  // 0（?? 只对 null/undefined 短路，0 不短路）
+// 关键差异：&&  vs ?. 对 falsy 值的处理
+const emptyStr: string = ""
+// && 方式："" 是 falsy，会短路
+const v1 = emptyStr && emptyStr.length   // ""（空字符串，falsy，短路返回 ""）
+// ?. 方式："" 不是 null/undefined，不短路，继续访问属性
+const v2 = emptyStr?.length             // 0（空字符串的 length 是 0）
+
+// 数字类型的对比
+const zero: number | undefined = 0
+// && 方式：0 是 falsy
+const v3 = zero && zero.toFixed(2)  // 0（数字）
+// ?. 方式：0 不是 null/undefined，会继续访问
+const v4 = zero?.toFixed(2)         // "0.00"
+
+console.log(v1, v2, v3, v4)
 ```
 
 ---

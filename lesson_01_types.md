@@ -339,8 +339,11 @@ person[1] = 30          // OK
 // 类型不匹配
 person[0] = 123         // 错误！string 位置不能赋值为 number
 // person[2] = true    // 错误！索引 2 超出元组定义的范围
-// 注意：元组在静态类型层会对越界索引报错，但它运行时仍是普通 JS 数组，
-// push()、pop() 等方法可以绕过类型检查。要完全锁定长度，应使用 `readonly` 元组。
+// 注意：元组在静态类型层会对越界索引（如 tuple[5]）报错，但它运行时仍是普通 JS 数组，
+// push()、pop() 等方法可以动态改变长度，TypeScript 编译无法检测。
+// 要完全锁定长度（禁止任何修改），应使用 `readonly` 元组：
+// const readonlyTuple: readonly [string, number] = ["hello", 42]
+// readonlyTuple.push(100)  // Error: Property 'push' does not exist on readonly '[string, number]'
 ```
 
 ### 可选元组元素
