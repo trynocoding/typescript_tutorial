@@ -659,7 +659,6 @@ async function* streamResponses(
         yield msg.toUpperCase()  // 每次 for-await 迭代才执行
     }
 }
-```
 
 async function processStream() {
     console.log("Starting...")
