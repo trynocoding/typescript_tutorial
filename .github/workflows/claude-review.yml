@@ -118,8 +118,8 @@ jobs:
       - name: Run Claude review on diff only
         if: steps.skipcheck.outputs.skip != 'true' && steps.diffpack.outputs.has_changes == 'true'
         env:
-          ANTHROPIC_BASE_URL: https://api.minimax.io/anthropic
-          ANTHROPIC_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          ANTHROPIC_BASE_URL: https://api.minimaxi.com/anthropic
+          ANTHROPIC_AUTH_TOKEN: ${{ secrets.MINIMAX_API_KEY }}
           ANTHROPIC_MODEL: MiniMax-M2.7
         run: bash .github/scripts/review.sh
 
