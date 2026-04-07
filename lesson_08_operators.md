@@ -1,6 +1,8 @@
 # 第八课：特殊操作符
 
 > 本课讲解 TypeScript 特有的操作符
+> 
+> 💡 **觉得这些符号太抽象？** 强烈建议先阅读 [番外篇：TypeScript 特殊操作符详解](./lesson_08_extra_operators_primer.md)，帮你一图建立起整体认知！
 
 ---
 
