@@ -1,0 +1,245 @@
+name: Claude Review on Push
+
+on:
+  push:
+    branches:
+      - "**"
+    paths:
+      - "**/*.md"
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: claude-review-${{ github.ref }}
+      cancel-in-progress: true
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check skip markers
+        id: skipcheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          MSG="${{ github.event.head_commit.message }}"
+          echo "commit_message<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$MSG" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          if printf '%s' "$MSG" | grep -Eiq '\[(skip ci|ci skip|no ci|skip actions|actions skip)\]|skip-checks:[[:space:]]*true'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write skipped summary
+        if: steps.skipcheck.outputs.skip == 'true'
+        shell: bash
+        run: |
+          {
+            echo "# Claude 审查报告"
+            echo ""
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Branch: \`${{ github.ref_name }}\`"
+            echo "- 状态: 已跳过"
+            echo ""
+            echo "检测到 commit message 中包含跳过标记，本次未执行审查。"
+            echo ""
+            echo "支持的标记：\`[skip ci]\`、\`[ci skip]\`、\`[no ci]\`、\`[skip actions]\`、\`[actions skip]\`、\`skip-checks:true\`。"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup Node.js
+        if: steps.skipcheck.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code
+        if: steps.skipcheck.outputs.skip != 'true'
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Build markdown diff review package
+        if: steps.skipcheck.outputs.skip != 'true'
+        id: diffpack
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            BEFORE="$(git rev-list --max-parents=0 HEAD | tail -n 1)"
+          fi
+
+          git diff --name-only "$BEFORE" "$AFTER" -- '*.md' > changed_files.txt || true
+
+          if [ ! -s changed_files.txt ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "has_changes=true" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "# 本次提交的 Markdown Diff 审查材料"
+            echo ""
+            echo "仓库: ${{ github.repository }}"
+            echo "分支: ${{ github.ref_name }}"
+            echo "提交: $AFTER"
+            echo "对比区间: $BEFORE..$AFTER"
+            echo ""
+            echo "请只基于以下 diff 片段审查，不要假设未展示的上下文内容。"
+            echo "如果问题依赖于文件其他部分才能确认，请标注为“建议确认上下文”。"
+            echo ""
+          } > review-input.md
+
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            {
+              echo ""
+              echo "## 文件: $file"
+              echo ""
+              echo '```diff'
+              git diff --unified=3 --no-color "$BEFORE" "$AFTER" -- "$file" || true
+              echo '```'
+              echo ""
+            } >> review-input.md
+          done < changed_files.txt
+
+      - name: Run Claude review on diff only
+        if: steps.skipcheck.outputs.skip != 'true' && steps.diffpack.outputs.has_changes == 'true'
+        shell: bash
+        env:
+          ANTHROPIC_BASE_URL: https://api.minimax.io/anthropic
+          ANTHROPIC_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          ANTHROPIC_MODEL: MiniMax-M2.7
+        run: |
+          set -euo pipefail
+
+          PROMPT=$(cat <<'EOF'
+你是一位严格但务实的 TypeScript 教程审查员。
+
+请你只审查提供的 diff 片段，不要审查整个文件，不要对未出现的内容做推断。
+你的任务是发现本次修改引入的问题，而不是泛泛评价整篇文档。
+
+重点检查：
+1. TypeScript 语法、类型、示例代码、代码注释是否正确
+2. 教程表述是否可能误导初学者
+3. Markdown 标题层级、列表、代码块语言标注是否规范
+4. 术语是否统一，前后描述是否冲突
+5. 发现的问题是否足够明确，建议是否可执行
+
+请使用中文输出，并严格遵循下面的 Markdown 格式：
+
+# 总体结论
+一句话结论：通过 / 建议修改 / 需要修正
+
+# 严重
+如果没有内容，写：- 无
+这里放会导致教程事实错误、代码错误、明显误导学习者的问题
+
+# 普通
+如果没有内容，写：- 无
+这里放准确性一般问题、表达歧义、结构问题、格式错误
+
+# 建议
+如果没有内容，写：- 无
+这里放可优化但不影响正确性的建议
+
+# 按文件明细
+对每个文件使用三级标题：
+### 文件路径
+
+在每个文件下按以下格式列出：
+- [严重] 问题 + 原因 + 建议改法
+- [普通] 问题 + 原因 + 建议改法
+- [建议] 优化点 + 建议改法
+
+如果某个文件没有问题，写：
+- ✅ 未发现明显问题
+
+请注意：
+- 只根据 diff 片段判断
+- 如果信息不足，请明确写“建议确认上下文”
+- 不要输出多余寒暄
+EOF
+)
+
+          claude -p \
+            --max-turns 5 \
+            --output-format text \
+            "$PROMPT
+
+以下是本次需要审查的 diff 材料：
+
+$(cat review-input.md)" \
+            > review-output.md
+
+      - name: Write summary when no markdown changed
+        if: steps.skipcheck.outputs.skip != 'true' && steps.diffpack.outputs.has_changes != 'true'
+        shell: bash
+        run: |
+          {
+            echo "# Claude 审查报告"
+            echo ""
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Branch: \`${{ github.ref_name }}\`"
+            echo "- 状态: 已跳过"
+            echo ""
+            echo "本次 push 未检测到 Markdown 文件变更。"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Write grouped summary
+        if: steps.skipcheck.outputs.skip != 'true' && steps.diffpack.outputs.has_changes == 'true'
+        shell: bash
+        run: |
+          {
+            echo "# Claude 审查报告"
+            echo ""
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Branch: \`${{ github.ref_name }}\`"
+            echo "- Repository: \`${{ github.repository }}\`"
+            echo ""
+            echo "## 本次审查范围"
+            echo ""
+            while IFS= read -r file; do
+              [ -n "$file" ] && echo "- \`$file\`"
+            done < changed_files.txt
+            echo ""
+            cat review-output.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload review artifact
+        if: steps.skipcheck.outputs.skip != 'true' && steps.diffpack.outputs.has_changes == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-review-${{ github.sha }}
+          path: |
+            review-input.md
+            review-output.md
+            changed_files.txt
+          retention-days: 14
+
+      - name: Failure fallback summary
+        if: failure() && steps.skipcheck.outputs.skip != 'true'
+        shell: bash
+        run: |
+          {
+            echo "# Claude 审查报告"
+            echo ""
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Branch: \`${{ github.ref_name }}\`"
+            echo "- 状态: 失败"
+            echo ""
+            echo "> [!CAUTION]"
+            echo "> 审查流程执行失败，请查看对应 step 日志。"
+          } >> "$GITHUB_STEP_SUMMARY"
