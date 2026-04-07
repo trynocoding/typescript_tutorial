@@ -117,72 +117,11 @@ jobs:
 
       - name: Run Claude review on diff only
         if: steps.skipcheck.outputs.skip != 'true' && steps.diffpack.outputs.has_changes == 'true'
-        shell: bash
         env:
           ANTHROPIC_BASE_URL: https://api.minimax.io/anthropic
           ANTHROPIC_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           ANTHROPIC_MODEL: MiniMax-M2.7
-        run: |
-          set -euo pipefail
-
-          PROMPT=$(cat <<'EOF'
-你是一位严格但务实的 TypeScript 教程审查员。
-
-请你只审查提供的 diff 片段，不要审查整个文件，不要对未出现的内容做推断。
-你的任务是发现本次修改引入的问题，而不是泛泛评价整篇文档。
-
-重点检查：
-1. TypeScript 语法、类型、示例代码、代码注释是否正确
-2. 教程表述是否可能误导初学者
-3. Markdown 标题层级、列表、代码块语言标注是否规范
-4. 术语是否统一，前后描述是否冲突
-5. 发现的问题是否足够明确，建议是否可执行
-
-请使用中文输出，并严格遵循下面的 Markdown 格式：
-
-# 总体结论
-一句话结论：通过 / 建议修改 / 需要修正
-
-# 严重
-如果没有内容，写：- 无
-这里放会导致教程事实错误、代码错误、明显误导学习者的问题
-
-# 普通
-如果没有内容，写：- 无
-这里放准确性一般问题、表达歧义、结构问题、格式错误
-
-# 建议
-如果没有内容，写：- 无
-这里放可优化但不影响正确性的建议
-
-# 按文件明细
-对每个文件使用三级标题：
-### 文件路径
-
-在每个文件下按以下格式列出：
-- [严重] 问题 + 原因 + 建议改法
-- [普通] 问题 + 原因 + 建议改法
-- [建议] 优化点 + 建议改法
-
-如果某个文件没有问题，写：
-- ✅ 未发现明显问题
-
-请注意：
-- 只根据 diff 片段判断
-- 如果信息不足，请明确写“建议确认上下文”
-- 不要输出多余寒暄
-EOF
-)
-
-          claude -p \
-            --max-turns 5 \
-            --output-format text \
-            "$PROMPT
-
-以下是本次需要审查的 diff 材料：
-
-$(cat review-input.md)" \
-            > review-output.md
+        run: bash .github/scripts/review.sh
 
       - name: Write summary when no markdown changed
         if: steps.skipcheck.outputs.skip != 'true' && steps.diffpack.outputs.has_changes != 'true'
